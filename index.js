@@ -58,7 +58,6 @@ async function run() {
     });
 
     // get all jobs  and specice email
-
     app.get("/jobs/:email", async (req, res) => {
       const email = req.params.email;
       const query = { "buyer.email": email };
@@ -81,12 +80,22 @@ async function run() {
       const options = { upsert: true };
       const updateDoc = {
         $set: {
-          ...jobData
+          ...jobData,
         },
       };
-      const result = await jobsCollection.updateOne(query,updateDoc,options)
-      res.send(result)
+      const result = await jobsCollection.updateOne(query, updateDoc, options);
+      res.send(result);
     });
+
+    // get all bids data or specis user db
+    app.get("/my-bids/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const result = await bidsCollection.find(query).toArray();
+      res.send(result);
+    });
+    // get all bid request for db for owner
+ 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log(
