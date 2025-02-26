@@ -1,16 +1,38 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const cookieParser = require("cookie-parser");
+const { MongoClient, ServerApiVersion, ObjectId, MaxKey } = require("mongodb");
 const app = express();
 require("dotenv").config();
+const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 8000;
 
 // middleware
-
-//nextHire
-//kD1Jn6lWkbJkV2O3
-app.use(cors());
+const corsOptions = {
+  origin: ["http://localhost:5173", "http://localhost:5174"],
+  credentials: true,
+  optionSuccessStatus: 200,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(cookieParser());
+
+// verify token jwt
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+  if (!token) return res.send(401).send({ message: "unauthorize access" });
+  if (token) {
+    jwt.verify(token, process.env.ACCESS_TOKEN, (err, decoded) => {
+      if (err) {
+        console.log(err);
+        return res.send(401).send({ message: "unauthorize access" });
+      }
+      console.log(decoded);
+      req.user = decoded;
+      next();
+    });
+  }
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.yqmtelq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -28,6 +50,34 @@ async function run() {
     // collection
     const jobsCollection = client.db("nextHire").collection("jobs");
     const bidsCollection = client.db("nextHire").collection("bids");
+
+    // jwt sign or generate
+    app.post("/jwt", async (req, res) => {
+      const email = req.body;
+      console.log("Dynamic Token for this user -->", email);
+      const token = jwt.sign(email, process.env.ACCESS_TOKEN, {
+        expiresIn: "365d",
+      });
+      // const token = "hardCoded Token"
+      res.cookie("token", token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV == "production" ? "node" : "strict",
+        })
+        .send({ success: true });
+    });
+
+    // clear cookie
+    app.get("/logout", async (req, res) => {
+      res
+        .clearCookie("token", {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV == "production" ? "node" : "strict",
+          maxAge: 0,
+        })
+        .send({ success: true });
+    });
 
     // get all api
     app.get("/jobs", async (req, res) => {
@@ -58,8 +108,12 @@ async function run() {
     });
 
     // get all jobs  and specice email
-    app.get("/jobs/:email", async (req, res) => {
+    app.get("/jobs/:email",verifyToken, async (req, res) => {
+      const tokenEmail = req.user.email;
       const email = req.params.email;
+      if (tokenEmail !== email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
       const query = { "buyer.email": email };
       const result = await jobsCollection.find(query).toArray();
       res.send(result);
