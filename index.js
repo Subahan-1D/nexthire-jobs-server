@@ -59,7 +59,8 @@ async function run() {
         expiresIn: "365d",
       });
       // const token = "hardCoded Token"
-      res.cookie("token", token, {
+      res
+        .cookie("token", token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: process.env.NODE_ENV == "production" ? "node" : "strict",
@@ -96,6 +97,14 @@ async function run() {
     // save a bid data in database
     app.post("/bid", async (req, res) => {
       const bidData = req.body;
+      const query = {
+        email: bidData.email,
+        jobId: bidData.jobId,
+      };
+      const alreadyApplied = await bidsCollection.findOne(query);
+      if (alreadyApplied) {
+        return res.status(404).send("You Have Already Placed bid on this job ");
+      }
       const result = await bidsCollection.insertOne(bidData);
       res.send(result);
     });
@@ -108,7 +117,7 @@ async function run() {
     });
 
     // get all jobs  and specice email
-    app.get("/jobs/:email",verifyToken, async (req, res) => {
+    app.get("/jobs/:email", verifyToken, async (req, res) => {
       const tokenEmail = req.user.email;
       const email = req.params.email;
       if (tokenEmail !== email) {
@@ -166,6 +175,23 @@ async function run() {
       };
       const result = await bidsCollection.updateOne(query, updateDoc);
       res.send(result);
+    });
+
+    // get jobs data for pagination
+    app.get("/all-jobs", async (req, res) => {
+      const size = parseInt(req.query.size)  ;
+      const page = parseInt(req.query.page) -1;
+      const result = await jobsCollection
+        .find()
+        .skip(page * size)
+        .limit(size)
+        .toArray();
+      res.send(result);
+    });
+
+    app.get("/jobs-count", async (req, res) => {
+      const count = await jobsCollection.countDocuments();
+      res.send({ count });
     });
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
