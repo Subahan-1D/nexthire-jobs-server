@@ -9,7 +9,12 @@ const port = process.env.PORT || 8000;
 
 // middleware
 const corsOptions = {
-  origin: ["http://localhost:5173", "http://localhost:5174"],
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://nexthire-jobs-platfrom.web.app",
+  ],
+  methods: "GET,POST,PUT,PATCH,DELETE",
   credentials: true,
   optionSuccessStatus: 200,
 };
@@ -63,7 +68,7 @@ async function run() {
         .cookie("token", token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV == "production" ? "node" : "strict",
+          sameSite: process.env.NODE_ENV == "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
@@ -71,11 +76,10 @@ async function run() {
     // clear cookie
     app.get("/logout", async (req, res) => {
       res
-        .clearCookie("token", {
+        .clearCookie("token",{
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
-          sameSite: process.env.NODE_ENV == "production" ? "node" : "strict",
-          maxAge: 0,
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
@@ -215,7 +219,6 @@ async function run() {
     );
   } finally {
     // Ensures that the client will close when you finish/error
-    // await client.close();
   }
 }
 run().catch(console.dir);
